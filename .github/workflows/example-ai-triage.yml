@@ -1,0 +1,23 @@
+# EXAMPLE risky workflow (for sentinel GitHub Actions scanner demo)
+# This pattern matches the 2026 Claude Code flaw vectors.
+name: AI Issue Triage (DEMO - risky)
+on:
+  issues:
+    types: [opened]
+  pull_request_target:  # dangerous without checks
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1  # old version vulnerable
+      - name: Run Claude on untrusted input
+        run: |
+          echo "Processing: ${{ github.event.issue.body }}" | claude ...
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # GITHUB_TOKEN passed implicitly with broad perms
