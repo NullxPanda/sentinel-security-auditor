@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.pyc
+bin/
+.sentinel_cache/
+*.db

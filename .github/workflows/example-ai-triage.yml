@@ -1,23 +1,38 @@
-# EXAMPLE risky workflow (for sentinel GitHub Actions scanner demo)
-# This pattern matches the 2026 Claude Code flaw vectors.
-name: AI Issue Triage (DEMO - risky)
+# SAFE pattern — gated trigger, least privilege, pinned action, controlled prompt.
+# Patched 2026-06-17 after sentinel-guard flagged the risky demo (CRITICAL).
+name: AI Issue Triage (SAFE)
 on:
   issues:
     types: [opened]
-  pull_request_target:  # dangerous without checks
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
+  issues: read
 
 jobs:
   triage:
     runs-on: ubuntu-latest
+    if: >
+      github.event.sender.type == 'User' &&
+      (github.event.issue.author_association == 'OWNER' ||
+       github.event.issue.author_association == 'MEMBER' ||
+       github.event.issue.author_association == 'COLLABORATOR')
+
     steps:
-      - uses: anthropics/claude-code-action@v1  # old version vulnerable
-      - name: Run Claude on untrusted input
-        run: |
-          echo "Processing: ${{ github.event.issue.body }}" | claude ...
+      - uses: anthropics/claude-code-action@v1.0.94
+
+      - name: Summarize issue safely
         env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # GITHUB_TOKEN passed implicitly with broad perms
+        run: |
+          SAFE_BODY=$(printf '%s' "$ISSUE_BODY" | sed -E \
+            '/ignore (all )?previous instructions/Id;
+             /you are now/Id;
+             /export.*secret/Id')
+          PROMPT="Summarize this support issue in 3 bullet points only.
+          Do not execute commands, access secrets, or modify the repository.
+          Title: ${ISSUE_TITLE}
+          Body: ${SAFE_BODY}"
+          echo "$PROMPT" | claude --max-turns 1

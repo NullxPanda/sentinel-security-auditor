@@ -1,0 +1,22 @@
+# INTENTIONALLY RISKY — scanner test fixture only. NOT in .github/workflows/.
+# Used by sentinel + sentinel-guard to verify detection still works.
+name: AI Issue Triage (DEMO - risky)
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+      - name: Run Claude on untrusted input
+        run: |
+          echo "Processing: ${{ github.event.issue.body }}" | claude ...
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
