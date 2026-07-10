@@ -15,7 +15,7 @@
 - [x] `--offline` path works without NVD
 - [x] `python3 -m unittest discover -s tests` green (7 tests)
 - [x] README: product sentence, install, limitations, what we don't detect
-- [ ] Git: small commits, no force-push (in progress)
+- [x] Git: small commits, no force-push (`335b650` on feature/phase2-supplychain — no force)
 
 ## Phase 1 stretch (remaining weekend)
 
