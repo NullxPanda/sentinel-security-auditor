@@ -1,0 +1,3 @@
+# LAB FIXTURE — malicious-looking resolver config language
+nameserver attacker-dns
+# dns-hijack scenario documented for blue-team drill

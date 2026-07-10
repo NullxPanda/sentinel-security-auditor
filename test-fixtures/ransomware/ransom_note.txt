@@ -1,0 +1,6 @@
+LAB FIXTURE — sample ransom note text for class detection only.
+
+YOUR FILES HAVE BEEN ENCRYPTED
+Send bitcoin to example.invalid
+
+Also mentions SMB Eternal for wormish lateral narrative (WannaCry-class docs).

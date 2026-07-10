@@ -1,75 +1,95 @@
-# SentinelOps
+# Sentinel
 
-**Repo:** https://github.com/TrippyDev/sentinel (renamed from TrippyD3v/sentinel-security-auditor)
+**Canonical path:** `/home/ghostnode/projects/sentinel`  
+**Doctrine:** [BACKBONE.md](./BACKBONE.md) · [CHALLENGE.md](./CHALLENGE.md) · [AGENTS.md](./AGENTS.md)
 
-Sentinel is a learning-driven system focused on backend + security thinking.
+## Product sentence
 
-Now includes GitHub Actions scanner for AI coding agent prompt injection risks (Claude Code GitHub Action style flaws from 2026). Scans local workflows for dangerous triggers, broad perms, bot allowlists, and raw untrusted input to AI — exactly the vectors that let one malicious issue hijack repos or poison supply chains. See historical AI-GHA-2026-* patterns and the main run output.
+> **Sentinel = local-first blue-team signal reducer: sense → match known-ugly classes → prioritize → recommend contain/patch.**
 
-Core question:
-What actually matters on a system right now?
-
----
-
-## Signal
-
-Most tools produce noise.
-Sentinel reduces that into what requires action.
-
----
+Not an EDR. Not Mythos-clone theater. Handmade defensive signal tooling for operators who need **what matters now** plus **what to do in five minutes**.
 
 ## Mode
 
-* local system analysis
-* defensive focus
-* no exploitation
+- local / offline-first analysis  
+- defensive focus only  
+- **no exploitation**, no live malware samples  
 
----
+## Quick start (cold)
 
-## System View
+```bash
+cd /home/ghostnode/projects/sentinel
 
-```
-sentinel_ops :: boot
-[ sentinel security auditor ]
-----------------------------------------
-> read.system()
-> parse.signal()
-> reduce.noise()
-----------------------------------------
-sentinel :: active
-purpose:
-find what actually matters
-method:
-installed -> running -> exposed -> actionable
-----------------------------------------
-signal:
-CVE-XXXX
-urgency: immediate
-> service: running
-> exposure: network
-action: patch
-----------------------------------------
-status: in_progress
-mode: learning
-----------------------------------------
-:: sentinel_ops ::
+# light deps (Surface-friendly)
+python3 -m pip install -r requirements-core.txt --user
 
-   .----.   @   @
-  / .-"-.`.  \v/
-  | | '\ \ \_/ )
- ,-\ `-.' /.'  /
- '---`----'----'
+# offline demo — ransomware-class + dns-class fixtures
+python3 sentinel.py --offline --modules ransomware-class,dns-class --root test-fixtures
 
-> system read complete
-> signal clean
-
-h3llo!
+# tests (stdlib unittest)
+python3 -m unittest discover -s tests -v
 ```
 
----
+Optional full network path (packages + NVD):
 
-## CVE Data Source
+```bash
+python3 sentinel.py --high-only
+# optional: export NVD_API_KEY=...
+```
 
-CVE intelligence is fetched from the NVD API (`https://services.nvd.nist.gov/rest/json/cves/2.0`).
+Optional Go guard:
 
-**Optional but recommended:** For much higher rate limits, get a free API key at https://nvd.nist.gov/developers/request-an-api-key and set the environment variable `NVD_API_KEY` before running Sentinel. The key is only read from your environment at runtime — it is never stored in this repository or any file created by this project.
+```bash
+go build -o bin/sentinel-guard ./cmd/sentinel-guard
+python3 sentinel.py --offline --modules gha --go-guard --root .
+```
+
+## Modules (Phase 0→1)
+
+| Module | What it does |
+|--------|----------------|
+| `packages` | Installed packages + live CVE correlate (needs network) |
+| `historical` | Local classic / campaign knowledge base |
+| `gha` | GitHub Actions AI prompt-injection / supply-chain patterns |
+| `shiny` | ShinyHunters-class SaaS/misconfig surface |
+| `ransomware-class` | Safe text rules for shadow-copy wipe, ransom notes, SMB worm narrative |
+| `dns-class` | Long-label / NXDOMAIN flood / hijack indicators in logs & configs |
+| `go-guard` | Optional path-safe GHA + secrets (Go binary) |
+
+## Finding shape (stable)
+
+`id, category, severity, description, asset, signal, evidence, action, do_not, tags`
+
+Every finding aims to answer: **what / why / evidence / action / do not**.
+
+## Filters
+
+```bash
+python3 sentinel.py --offline --root test-fixtures \
+  --modules ransomware-class,dns-class \
+  --filter 'severity>=HIGH'
+
+python3 sentinel.py --list-filters
+```
+
+## What we detect / what we don’t
+
+**Do (classes, fixtures, configs, workflows):**  
+ransomware *prep* language, DNS abuse *patterns*, GHA AI risks, known misconfig surfaces, optional CVE×package.
+
+**Don’t (yet):**  
+kernel EDR, live worm capture, auto-isolate, AI that kills processes, enterprise DNS sinkhole product, every 0-day.
+
+Backups still matter. Sentinel helps you **see earlier** and **limit blast radius** — it does not replace IR or immutable backups.
+
+## Lab rule
+
+Use `test-fixtures/` only. No random malware downloads on the Surface.
+
+## Identity
+
+GitHub history may show `TrippyD3v` / `TrippyDev` renames. **One product name: Sentinel.** One code root (this directory).
+
+## CVE data
+
+Live CVE via NVD API when not `--offline`. Optional `NVD_API_KEY` for rate limits — never commit keys.

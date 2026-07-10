@@ -1,0 +1,19 @@
+# LAB FIXTURE — synthetic DNS log lines for class detection (not a real capture)
+2026-07-10T20:00:01Z query[A] aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.exfil.example.invalid
+2026-07-10T20:00:02Z query[A] xyz9k2m4p8q1w7e3r5t6y0u1i2o3p4a5s6d7f8g9h0.tunnel.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo1.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo2.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo3.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo4.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo5.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo6.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo7.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo8.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo9.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo10.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo11.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo12.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo13.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo14.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo15.dga.example.invalid
+2026-07-10T20:00:03Z NXDOMAIN foo16.dga.example.invalid

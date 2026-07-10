@@ -1,0 +1,3 @@
+# Light deps for Phase 0 offline-first path (Surface-friendly).
+# Full optional stack remains in requirements.txt (playwright, etc.) — do not install on 4GB unless needed.
+requests>=2.32.0
