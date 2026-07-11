@@ -1,0 +1,10 @@
+# Phase 2 baseline allowlist — known noise / accepted risk
+# Format: category|id|asset_substring
+# Empty field = wildcard. Lines with # are comments.
+#
+# Default file ships EMPTY of active rules so demos stay loud.
+# Uncomment or add lines when you accept a finding in lab/prod.
+#
+# Examples (commented — enable only when intentional):
+# ransomware-class|RW-CLASS-RANSOM-NOTE|lab/notes/
+# dns-class|DNS-CLASS-UNCOMMON-RESOLVER|

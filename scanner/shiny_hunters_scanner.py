@@ -50,11 +50,12 @@ PEOPLESOFT_SIGNS = [
     "cve-2026-35273",  # the one referenced in the research tab
 ]
 
+# Phase 2 FP pass: dropped bare "unauth" (matched too many docs). Prefer full phrases.
 BROAD_ACCESS_SIGNS = [
     'guest":',
     '"public": "read',
     "read:*",
-    "unauth",
+    "unauthenticated access",
     "no auth",
     "bypass mfa",
     "mfa exception",
@@ -62,10 +63,12 @@ BROAD_ACCESS_SIGNS = [
     "breakglass",
 ]
 
+# Prefer product-ish tokens over single vendor words where possible (fewer blog FPs)
 VENDOR_SUPPLY_SIGNS = [
     "context.ai",
     "anodot",
-    "snowflake",
+    "snowflakecomputing",
+    "snowflake-sdk",
     "mixpanel",
     "instructure",
     "canvas lms",
@@ -95,9 +98,16 @@ def _scan_files(root: Path, patterns: List[str], exts: List[str]) -> List[Dict[s
                 for skip in (".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build")
             ):
                 continue
-            # Do not self-flag the sentinel project's own docs when they describe vectors
+            # Do not self-flag the project's own docs/KB when they describe vectors.
+            # Keep test-fixtures/ and lab/ scannable (Phase 2 fixtures must fire).
             sp = str(p).lower()
-            if "sentinel" in sp and any(x in sp for x in ("readme", "historical", "shiny")):
+            if "test-fixtures" in sp or "/lab/" in sp or sp.endswith("/lab") or "lab/" in p.parts:
+                pass  # always scan lab + fixtures
+            elif "sentinel" in sp and any(
+                x in sp for x in ("readme", "historical.py", "shiny_hunters_scanner")
+            ):
+                continue
+            elif p.name.lower() in {"readme.md", "backbone.md", "challenge.md", "phase2.md", "collab.md"}:
                 continue
             try:
                 text = p.read_text(errors="ignore").lower()

@@ -33,7 +33,21 @@ python3 sentinel.py --demo
 python3 sentinel.py --offline --modules ransomware-class,dns-class --root test-fixtures
 ```
 
-Doctrine we share: [BACKBONE.md](./BACKBONE.md) · how we work together: [COLLAB.md](./COLLAB.md)
+Doctrine we share: [BACKBONE.md](./BACKBONE.md) · [COLLAB.md](./COLLAB.md) · [PHASE2.md](./PHASE2.md) · [CHALLENGE.md](./CHALLENGE.md)
+
+### Phase 2 — continuous + fewer FPs + lab
+
+```bash
+# continuous offline class scan (Ctrl+C to stop)
+bash scripts/scan_loop.sh --interval 60
+
+# baseline allowlist (category|id|asset_substring) — default file has no active rules
+python3 sentinel.py --offline --modules ransomware-class,dns-class \
+  --root test-fixtures --baseline config/baseline_allowlist.txt
+
+# lab practice notes (safe fixtures only)
+ls lab/
+```
 
 Optional full network path (packages + NVD):
 
@@ -49,7 +63,7 @@ go build -o bin/sentinel-guard ./cmd/sentinel-guard
 python3 sentinel.py --offline --modules gha --go-guard --root .
 ```
 
-## Modules (Phase 0→1)
+## Modules (Phase 0→2)
 
 | Module | What it does |
 |--------|----------------|

@@ -1,0 +1,7 @@
+# Safe fixture — ShinyHunters-class guest / Aura surface language only
+experience_cloud:
+  site: public
+  # intentional misconfig language for detector (not a real org)
+  guest_profile: allow guest
+  notes: "Experience Cloud guest user with public read on CRM objects"
+  aura_endpoint: "/s/sfsites/aura"

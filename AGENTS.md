@@ -35,9 +35,10 @@ Sentinel = local-first blue-team signal reducer: sense → match known-ugly clas
 
 ```bash
 cd /home/ghostnode/projects/sentinel
-python3 -m pip install -r requirements-core.txt --user   # light deps
-python3 sentinel.py --offline --help
+python3 -m pip install -r requirements-core.txt --user   # light deps (optional offline)
+bash scripts/demo_cold.sh
 python3 -m unittest discover -s tests -v
+# Phase 2: bash scripts/scan_loop.sh --interval 60
 ```
 
 ## When stuck

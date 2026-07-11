@@ -1,10 +1,12 @@
-# Challenge: Phase 0 → 1 weekend push
+# Challenge: Phase 0 → 1 complete · Phase 2 open
 
 **Accepted:** A + B + C + D  
-**Window:** Friday night + 2 days  
-**Flagship:** Sentinel @ `/home/ghostnode/projects/sentinel`
+**Flagship:** Sentinel @ `/home/ghostnode/projects/sentinel` only  
+**Branch tip (Session 3 start):** `5333d7e` + follow-ups on `feature/phase2-supplychain`
 
-## Definition of Done (Phase 0)
+---
+
+## Definition of Done (Phase 0) — CLOSED
 
 - [x] Canonical root declared (BACKBONE + AGENTS)
 - [x] Stable `Finding` model used by new modules
@@ -13,17 +15,74 @@
 - [x] DNS-**class** module + fixtures + tests
 - [x] Unified reporter: what / why / evidence / action / do_not
 - [x] `--offline` path works without NVD
-- [x] `python3 -m unittest discover -s tests` green (7 tests)
+- [x] `python3 -m unittest discover -s tests` green (**11** tests as of Session 3)
 - [x] README: product sentence, install, limitations, what we don't detect
-- [x] Git: small commits, no force-push (`335b650` on feature/phase2-supplychain — no force)
+- [x] Git: small commits, no force-push lifestyle
 
-## Phase 1 stretch (weekend → Session 2)
+## Phase 1 stretch — CLOSED (Session 2)
 
-- [x] Demo receipt script / one-liner in README proven on cold shell (`scripts/demo_cold.sh`, `python3 sentinel.py --demo`)
-- [x] Tighten GHA + shiny normalizers fully onto Finding fields everywhere (`correlator/normalize.py`)
-- [x] Historical section: less wall-of-text, more action boxes (reporter + `_HISTORICAL_ACTIONS`)
-- [x] Optional: go-guard wired in default CI-less test skip if binary missing
-- [x] Duo comments pass (`#` why-notes on orchestrator / scanners / normalize) + COLLAB.md
+- [x] Demo receipt script / one-liner (`scripts/demo_cold.sh`, `python3 sentinel.py --demo`)
+- [x] GHA + shiny normalizers → Finding fields (`correlator/normalize.py`)
+- [x] Historical: action boxes over wall-of-text
+- [x] go-guard skip if binary missing
+- [x] Duo `#` comments + COLLAB.md
+
+---
+
+## Challenge A ∪ B ∪ C — Session 3 receipt (2026-07-10)
+
+### A — Session work (cold audit → green)
+
+| Check | Result |
+|-------|--------|
+| `python3 -m unittest discover -s tests -v` | **11/11 OK** |
+| `bash scripts/demo_cold.sh` | **OK — cold path green** |
+| `python3 sentinel.py --offline --help` | flags present (`--demo`, modules list) |
+| class modules on `test-fixtures` | findings + Action / Do NOT |
+| Tree: BACKBONE / AGENTS / CHALLENGE / COLLAB / README / sentinel.py | present |
+
+**A fix from audit:** `CVE-1999-0095` had only default playbook → explicit Action/Do NOT in `correlator/normalize.py`.
+
+### B — Written protocol in-repo
+
+Updated this file + BACKBONE + README + COLLAB so process is **not tribal**:
+- Phase 0/1 marked closed with honest test counts  
+- A∪B∪C receipt lives here  
+- Phase 2 DoD written before coding Phase 2 features  
+- Cold path one-liners stay in README  
+
+### C — Flagship is Sentinel
+
+| Path | Role |
+|------|------|
+| `/home/ghostnode/projects/sentinel` | **Only source of truth** |
+| `~/TrippyD3v/projects/sentinel` | Pointer stub (not source) |
+| `~/projects/grok-work-standalone-history` | Unrelated history — not Sentinel WIP |
+
+No side-product WIP this session. All hours on this root.
+
+### A∪B∪C status
+
+**GREEN.** Phase 1 boring-solid enough to open Phase 2 without theater.
+
+---
+
+## Phase 2 Definition of Done (OPEN)
+
+Backbone goal: **continuous scans, fewer FPs, real lab.**
+
+- [ ] Continuous / repeatable scan path (loop or schedule-friendly CLI; offline-safe)
+- [ ] FP control: baseline / allowlist for known-noise findings (file in-repo, documented)
+- [ ] Lab layout: `lab/` rules + at least one lab note (no live malware)
+- [ ] Shiny (or other) FP reduction with fixture + test proving signal still fires
+- [ ] Tests stay green; cold demo still green
+- [ ] Session receipts keep listing *why* each ship
+
+**Do not build in Phase 2:** full EDR, kernel, AI auto-kill, multi-host product UI.
+
+See **PHASE2.md** for working plan.
+
+---
 
 ## Rules of engagement
 
@@ -35,37 +94,28 @@
 
 ## Session 1 receipt (2026-07-10)
 
-Shipped:
-
-- BACKBONE.md / AGENTS.md / CHALLENGE.md as system memory  
-- Finding model + blue-team reporter  
-- ransomware-class + dns-class scanners + safe fixtures  
-- offline CLI (`--offline --modules --root`)  
-- 7 unittest cases green  
-- Canonical vs TrippyD3v pointer clarified  
+Phase 0 core: doctrine, Finding, class scanners, offline CLI, 7 tests (then).
 
 ## Session 2 receipt (2026-07-10)
 
-Shipped (Phase 1 chassis + duo working style):
+Phase 1 chassis: normalize dialect, `--demo`, cold script, comments, 11 tests.
 
-- `correlator/normalize.py` — one dialect for historical / GHA / shiny / live / go-guard  
-- `sentinel.py` orchestrator: `--demo`, offline module set, normalize-before-filter  
-- Operator blocks: Action / Do NOT stable in `reporting/reporter.py`  
-- `scripts/demo_cold.sh` + README cold path + COLLAB.md  
-- `#` comments on detection/orchestration files (for us; not in operator text)  
-- Tests: 11 green (`test_normalize` + class fixtures + offline CLI)  
+## Session 3 receipt (2026-07-10)
 
-Next session → Challenge **A ∪ B ∪ C** focus (see end of this file).
+**A∪B∪C** closed green.
 
-## Challenge A ∪ B ∪ C (next plan)
+**Phase 2 opened + first ships:**
 
-| Letter | Meaning (BACKBONE) | Next concrete work |
-|--------|--------------------|--------------------|
-| **A** | Session work — audit, cold-run, first green path | Re-run cold demo after clean checkout; fix any red; session receipt only when green |
-| **B** | Written protocol in-repo | Keep CHALLENGE / BACKBONE / COLLAB honest; no tribal knowledge outside the tree |
-| **C** | Flagship is Sentinel | No side toys; every hour goes into this root until Phase 1 feels boring-solid |
+- `scripts/scan_loop.sh` — continuous offline class scan  
+- `utils/baseline.py` + `--baseline` + `config/baseline_allowlist.txt`  
+- `lab/README.md` — safe lab rules  
+- Shiny FP tighten + `test-fixtures/shiny/` + tests  
+- `PHASE2.md` plan; BACKBONE/README/COLLAB updated  
+- Tests: **16** green; cold path still green  
 
-Optional Phase 1+ after A∪B∪C is green: fewer FPs on shiny, more fixtures, lab notes — not Phase 2 theater.
+## Session 3 end note
+
+Phase 2 is **usable-started**, not “finished forever.” Day-to-day polish continues under PHASE2.md.
 
 ## Respect metric
 

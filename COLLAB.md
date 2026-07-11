@@ -29,3 +29,13 @@ python3 sentinel.py --demo
 ```
 
 If that fails, stop feature-hunting and fix the chassis.
+
+## Phase 2 extras
+
+```bash
+bash scripts/scan_loop.sh --interval 60
+python3 sentinel.py --offline --modules ransomware-class,dns-class \
+  --root test-fixtures --baseline config/baseline_allowlist.txt
+```
+
+Lab notes: `lab/README.md`. Allowlist format: `category|id|asset_substring`.

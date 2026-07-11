@@ -37,6 +37,7 @@ from correlator.normalize import (
     normalize_shiny,
 )
 from reporting.reporter import print_blue_team_findings, print_summary
+from utils.baseline import apply_baseline, load_baseline
 from utils.filters import apply_filters
 
 
@@ -140,6 +141,13 @@ def parse_args(argv=None):
         # One command a teammate can run without reading our brains
         help="Stranger-proof offline demo (fixtures + class modules). Ignores network.",
     )
+    p.add_argument(
+        "--baseline",
+        default="",
+        metavar="FILE",
+        # Phase 2: suppress known-noise keys without weakening detectors
+        help="Allowlist file (category|id|asset_substring). Empty/missing = no suppress.",
+    )
     return p.parse_args(argv)
 
 
@@ -237,8 +245,14 @@ Offline / together demos:
     root = args.root
     mods = _wanted_modules(args)
     filt_str = build_filter_string(args)
+    # Phase 2 baseline: load once, apply after each module's filters
+    baseline_rules = load_baseline(args.baseline or None)
     # Accumulators are dicts (filter layer + reporter both accept dicts)
     all_findings: List[Dict[str, Any]] = []
+
+    def _pipe(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        # Shared path: display filter → baseline suppress → operator eyes
+        return apply_baseline(apply_filters(findings, filt_str), baseline_rules)
 
     # Boot banner: boring, greppable, good for session receipts
     print("sentinel :: boot")
@@ -247,6 +261,8 @@ Offline / together demos:
     print(f"root    : {root}")
     print(f"modules : {', '.join(sorted(mods)) or '(none)'}")
     print(f"mode    : {'offline' if (args.offline or args.demo) else 'online-capable'}")
+    if args.baseline:
+        print(f"baseline: {args.baseline} ({len(baseline_rules)} rule(s))")
     print("-" * 40)
 
     # -----------------------------------------------------------------------
@@ -268,7 +284,7 @@ Offline / together demos:
         print("CVE records retrieved:", len(cves))
         raw_live = match_packages_to_cves(packages, cves)
         # Always normalize before filter/report so Action/Do NOT exist
-        live = apply_filters([normalize_live_cve(f) for f in raw_live], filt_str)
+        live = _pipe([normalize_live_cve(f) for f in raw_live])
         if live:
             print_blue_team_findings(live, "Live package / CVE findings")
             all_findings.extend(live)
@@ -283,7 +299,7 @@ Offline / together demos:
 
         print("\nLoading local historical attack knowledge base...")
         historical_raw = get_historical_cves(50)
-        hist = apply_filters([normalize_historical(h) for h in historical_raw], filt_str)
+        hist = _pipe([normalize_historical(h) for h in historical_raw])
         if hist:
             # Bound noise: classics first, then campaign vectors
             # (full list is still available via --json or higher limits later)
@@ -315,7 +331,7 @@ Offline / together demos:
                     continue  # de-dupe when demo scans fixtures + repo
                 seen_wf.add(key)
                 gha_acc.append(normalize_gha(raw))
-        gha = apply_filters(gha_acc, filt_str)
+        gha = _pipe(gha_acc)
         if gha:
             print_blue_team_findings(gha, "GitHub Actions / AI risk findings")
             all_findings.extend(gha)
@@ -327,10 +343,7 @@ Offline / together demos:
         from scanner.shiny_hunters_scanner import get_shiny_hunters_findings
 
         print("\nScanning for ShinyHunters-class exposure surfaces...")
-        shiny = apply_filters(
-            [normalize_shiny(f) for f in get_shiny_hunters_findings(root)],
-            filt_str,
-        )
+        shiny = _pipe([normalize_shiny(f) for f in get_shiny_hunters_findings(root)])
         if shiny:
             print_blue_team_findings(shiny, "ShinyHunters strategy vector findings")
             all_findings.extend(shiny)
@@ -343,10 +356,7 @@ Offline / together demos:
 
         print("\nScanning for ransomware-CLASS patterns (safe text rules)...")
         # Class scanners already return Finding; finding_to_filter_dict for filters
-        rw = apply_filters(
-            [finding_to_filter_dict(f) for f in scan_ransomware_class(root)],
-            filt_str,
-        )
+        rw = _pipe([finding_to_filter_dict(f) for f in scan_ransomware_class(root)])
         if rw:
             print_blue_team_findings(rw, "Ransomware-class findings")
             all_findings.extend(rw)
@@ -359,9 +369,8 @@ Offline / together demos:
 
         print("\nScanning for DNS-CLASS abuse / misconfig patterns...")
         # include_system=False: demos stay deterministic on any machine
-        dns = apply_filters(
-            [finding_to_filter_dict(f) for f in scan_dns_class(root, include_system=False)],
-            filt_str,
+        dns = _pipe(
+            [finding_to_filter_dict(f) for f in scan_dns_class(root, include_system=False)]
         )
         if dns:
             print_blue_team_findings(dns, "DNS-class findings")
@@ -371,7 +380,7 @@ Offline / together demos:
 
     # --- go guard (optional) ---
     if "go-guard" in mods:
-        gof = apply_filters(_run_go_guard(root), filt_str)
+        gof = _pipe(_run_go_guard(root))
         if gof:
             print_blue_team_findings(gof, "Go guard findings")
             all_findings.extend(gof)

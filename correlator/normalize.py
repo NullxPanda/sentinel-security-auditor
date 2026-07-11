@@ -34,6 +34,11 @@ from utils.filters import add_category_and_tags
 # (or the defaults below kick in — fine, but less useful for operators).
 # ---------------------------------------------------------------------------
 _HISTORICAL_ACTIONS: Dict[str, Dict[str, str]] = {
+    # A-audit: older classics need playbooks too (defaults are honest but thin)
+    "CVE-1999-0095": {
+        "action": "Confirm no internet-facing sendmail/debug SMTP; upgrade MTA; block port 25/465/587 from untrusted nets if unused.",
+        "do_not": "Do not leave 'debug' or old sendmail on edge hosts for nostalgia.",
+    },
     "CVE-2014-6271": {
         "action": "Patch bash; inventory CGI/SSH ForceCommand surfaces; block untrusted env injection paths.",
         "do_not": "Do not leave CGI + old bash on internet edges 'because it still works'.",

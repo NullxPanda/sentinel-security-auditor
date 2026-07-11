@@ -1,6 +1,6 @@
 # SENTINEL BACKBONE (SYSTEM MEMORY)
 
-**Status:** Locked 2026-07-10 — durable project doctrine.  
+**Status:** Living doctrine — Phase 0/1 closed; Phase 2 open (2026-07-10).  
 **Canonical root:** `/home/ghostnode/projects/sentinel` (only truth).  
 **Pointer stub:** `~/TrippyD3v/projects/sentinel` is not source.
 
@@ -27,7 +27,7 @@ If a feature cannot defend that sentence, it does not ship.
 
 AI may later **rank/explain**. AI never owns detection or auto-kill.
 
-Surface 4GB / solo / learning Go+Python is **Phase 0**, not a life sentence.  
+Surface 4GB / solo / learning Go+Python was **Phase 0**, not a life sentence.  
 Ladder: clean core → class modules + fixtures → lab → hardware only when it hurts → optional AI last.
 
 ---
@@ -47,11 +47,14 @@ Ladder: clean core → class modules + fixtures → lab → hardware only when i
 
 ## Build now / do not build yet
 
-**Build now (Phase 0→1):**  
-Finding model, reporters, package/CVE + GHA + path/secrets (cleaned), 1 ransomware-class module, 1 DNS-class module, containment-oriented output, fixtures + tests.
+**Built (Phase 0→1 — closed):**  
+Finding model, reporters, package/CVE + GHA + path/secrets (cleaned), ransomware-class, DNS-class, normalize dialect, cold demo, containment output, fixtures + tests.
+
+**Build now (Phase 2):**  
+Continuous / loop scans, baseline allowlist (fewer FPs), real `lab/` notes, FP reduction with fixtures. See **PHASE2.md**.
 
 **Do not build yet:**  
-Full EDR, kernel drivers, live malware zoo, AI block/kill, enterprise DNS sinkhole product.
+Full EDR, kernel drivers, live malware zoo, AI block/kill, enterprise DNS sinkhole product, multi-host console.
 
 ---
 
@@ -74,17 +77,17 @@ Every finding should answer:
 - **C:** Flagship is **Sentinel** (not a side toy)  
 - **D:** Full ladder doctrine above (lab, skills, hardware ROI, scope kill-switch)
 
-Respect currency: clean clone path, tests, git history a teammate can follow, boring fixes over drama.
+**Session 3:** A∪B∪C green (see CHALLENGE.md receipt). Respect currency still applies.
 
 ---
 
 ## Phases
 
-| Phase | Goal |
-|-------|------|
-| 0 | Clean core, one tree, tests, install path |
-| 1 | 2–3 detection classes + actions, cold demo |
-| 2 | Continuous scans, fewer FPs, real lab |
-| 3 | Optional AI rank/explain; multi-host |
+| Phase | Goal | Status |
+|-------|------|--------|
+| 0 | Clean core, one tree, tests, install path | **Closed** |
+| 1 | 2–3 detection classes + actions, cold demo | **Closed** |
+| 2 | Continuous scans, fewer FPs, real lab | **Open** → PHASE2.md |
+| 3 | Optional AI rank/explain; multi-host | Not yet |
 
-Phase 3 without Phase 0 is theater.
+Phase 3 without Phase 0–1 is theater. Phase 2 without cold green is theater.
