@@ -8,6 +8,11 @@ Catches defender-relevant DNS ugliness without being a full resolver SOC:
 
 Offline fixtures under test-fixtures/dns/ are the primary reliable path.
 Live reads of /etc/resolv.conf are optional and best-effort.
+
+Team notes (# comments in code are for us — not operator noise):
+  - Entropy/length thresholds are tunable — change them with a comment + test.
+  - include_system=True is opt-in so demos stay deterministic on any machine.
+  - Not a sinkhole product; we surface signals, humans decide blocks.
 """
 
 from __future__ import annotations
@@ -19,9 +24,10 @@ from typing import Iterable, List, Optional
 
 from models.data_models import Finding
 
+# Skip heavy / irrelevant trees — same idea as other class scanners
 _SKIP_DIRS = {".git", "__pycache__", ".sentinel_cache", "node_modules", "venv", ".venv", "bin"}
 
-# domain-ish tokens
+# domain-ish tokens (good enough for log lines; not a full DNS parser)
 _DOMAIN_RE = re.compile(
     r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\b",
     re.I,
@@ -45,6 +51,7 @@ _COMMON_RESOLVERS = {
 
 
 def _entropy(s: str) -> float:
+    # Shannon entropy on label chars — high + long ≈ tunneling-ish
     if not s:
         return 0.0
     from collections import Counter
@@ -55,6 +62,7 @@ def _entropy(s: str) -> float:
 
 
 def _iter_dns_files(root: Path) -> Iterable[Path]:
+    """Yield text-ish files that might mention DNS (name, path, or suffix)."""
     if not root.exists():
         return
     for p in root.rglob("*"):
@@ -63,6 +71,7 @@ def _iter_dns_files(root: Path) -> Iterable[Path]:
         if any(part in _SKIP_DIRS for part in p.parts):
             continue
         name = p.name.lower()
+        # Cap size: logs can be huge; we only need pattern presence
         if p.stat().st_size > 2_000_000:
             continue
         if (
@@ -73,14 +82,18 @@ def _iter_dns_files(root: Path) -> Iterable[Path]:
         ):
             yield p
         elif "dns" in str(p.parent).lower():
+            # Parent dir named dns/ is enough (fixtures layout)
             yield p
 
 
 def _findings_from_text(rel: str, text: str) -> List[Finding]:
+    """Apply DNS-class rules to one file body. Action/Do NOT are on the Finding."""
     out: List[Finding] = []
     lower = text.lower()
 
-    # Tunneling-ish: very long labels
+    # --- Tunneling-ish: very long labels or high-entropy mid labels ---
+    # Thresholds: len>=40 hard long; len>=20 and entropy>=3.5 soft high-ent
+    # Tune only with a fixture + test (COLLAB.md rule).
     for m in _DOMAIN_RE.finditer(text):
         dom = m.group(0)
         labels = dom.split(".")
@@ -106,7 +119,7 @@ def _findings_from_text(rel: str, text: str) -> List[Finding]:
             )
             break  # one finding per file for this class is enough
 
-    # NXDOMAIN flood hint
+    # --- NXDOMAIN flood hint (count threshold is deliberate noise control) ---
     nx = lower.count("nxdomain")
     if nx >= 15:
         out.append(
@@ -126,7 +139,7 @@ def _findings_from_text(rel: str, text: str) -> List[Finding]:
             )
         )
 
-    # Explicit evil resolver docs
+    # --- Explicit evil resolver docs (fixture language + real misconfig notes) ---
     for bad in ("0.0.0.0", "attacker-dns", "malicious-resolver", "dns-hijack"):
         if bad in lower:
             out.append(
@@ -147,14 +160,16 @@ def _findings_from_text(rel: str, text: str) -> List[Finding]:
             )
             break
 
-    # nameserver lines that look odd in project configs
+    # --- nameserver lines that look odd in project configs ---
     for line in text.splitlines():
         if line.strip().lower().startswith("nameserver"):
             parts = line.split()
             if len(parts) >= 2 and parts[1] not in _COMMON_RESOLVERS and not parts[1].startswith("192.168."):
                 # private 10/172 still ok-ish; flag uncommon public-looking
                 ip = parts[1]
-                if re.match(r"^\d+\.\d+\.\d+\.\d+$", ip) and not ip.startswith(("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.2", "172.3", "192.168.")):
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", ip) and not ip.startswith(
+                    ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.2", "172.3", "192.168.")
+                ):
                     if ip not in _COMMON_RESOLVERS:
                         out.append(
                             Finding(
@@ -176,6 +191,7 @@ def _findings_from_text(rel: str, text: str) -> List[Finding]:
 
 
 def _scan_system_resolv() -> List[Finding]:
+    # Live host resolv is noisy on laptops; only keep hijack-class hits
     path = Path("/etc/resolv.conf")
     if not path.is_file():
         return []
@@ -189,9 +205,10 @@ def _scan_system_resolv() -> List[Finding]:
 
 
 def scan_dns_class(root: str = ".", include_system: bool = False) -> List[Finding]:
+    """Scan root for DNS-class patterns. Default: project tree only (deterministic)."""
     rootp = Path(root).resolve()
     findings: List[Finding] = []
-    seen = set()
+    seen = set()  # de-dupe (id, file, evidence prefix)
 
     for path in _iter_dns_files(rootp):
         try:
@@ -214,4 +231,5 @@ def scan_dns_class(root: str = ".", include_system: bool = False) -> List[Findin
 
 
 def get_dns_class_findings(root: str = ".", include_system: bool = False) -> List[Finding]:
+    # Alias used by scanner package / tests — keep name stable
     return scan_dns_class(root, include_system=include_system)

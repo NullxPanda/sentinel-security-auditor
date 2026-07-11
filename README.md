@@ -15,20 +15,25 @@ Not an EDR. Not Mythos-clone theater. Handmade defensive signal tooling for oper
 - defensive focus only  
 - **no exploitation**, no live malware samples  
 
-## Quick start (cold)
+## Quick start (cold) — stranger / teammate proof
 
 ```bash
 cd /home/ghostnode/projects/sentinel
 
-# light deps (Surface-friendly)
-python3 -m pip install -r requirements-core.txt --user
+# light deps only if you need live CVE later (offline demo needs none beyond stdlib)
+python3 -m pip install -r requirements-core.txt --user   # optional for --offline/--demo
 
-# offline demo — ransomware-class + dns-class fixtures
+# one command (tests + operator demo)
+bash scripts/demo_cold.sh
+
+# or just the operator view
+python3 sentinel.py --demo
+
+# class fixtures only
 python3 sentinel.py --offline --modules ransomware-class,dns-class --root test-fixtures
-
-# tests (stdlib unittest)
-python3 -m unittest discover -s tests -v
 ```
+
+Doctrine we share: [BACKBONE.md](./BACKBONE.md) · how we work together: [COLLAB.md](./COLLAB.md)
 
 Optional full network path (packages + NVD):
 

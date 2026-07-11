@@ -9,6 +9,12 @@ generic ransomware *operator* patterns:
 
 Safe by design: text pattern matching on a root tree + optional fixture dir.
 Never executes samples. Never downloads malware.
+
+Team notes (# comments for us — detection brain is RULES, not prose in findings):
+  - RULES tuples are the detection brain — add a row, not a one-off if/else.
+  - Always set action + do_not (blue-team contract in BACKBONE.md).
+  - Fixtures live in test-fixtures/ransomware/ — extend those when you add rules.
+  - This is CLASS detection (language/prep), not a full EDR sensor.
 """
 
 from __future__ import annotations
@@ -18,7 +24,11 @@ from typing import Iterable, List, Tuple
 
 from models.data_models import Finding
 
-# (rule_id, severity, substrings_all_lower, description, action, do_not, tags)
+# ---------------------------------------------------------------------------
+# Detection brain: (rule_id, severity, needles_all_must_match_lower,
+#                   description, action, do_not, tags)
+# Add a row + fixture + test when you extend. Do not thrash thresholds silently.
+# ---------------------------------------------------------------------------
 RULES: List[Tuple] = [
     (
         "RW-CLASS-SHADOW-DELETE",
@@ -76,6 +86,7 @@ RULES: List[Tuple] = [
     ),
 ]
 
+# Paths we never walk (speed + noise)
 _SKIP_DIRS = {
     ".git",
     "__pycache__",
@@ -87,6 +98,7 @@ _SKIP_DIRS = {
     "vendor",
 }
 
+# Only text-ish sources; we do not open binaries or PE samples
 _TEXT_SUFFIXES = {
     ".py",
     ".sh",
@@ -122,15 +134,17 @@ def _iter_text_files(root: Path) -> Iterable[Path]:
             # allow extensionless notes named like ransom
             if "ransom" not in p.name.lower() and "encrypt" not in p.name.lower():
                 continue
+        # Size cap: prep scripts are small; skip giant dumps
         if p.stat().st_size > 1_500_000:
             continue
         yield p
 
 
 def scan_ransomware_class(root: str = ".") -> List[Finding]:
+    """Walk root; emit one Finding per (rule, file) hit. Never executes content."""
     rootp = Path(root).resolve()
     findings: List[Finding] = []
-    seen = set()
+    seen = set()  # (rule_id, rel_path)
 
     for path in _iter_text_files(rootp):
         try:
@@ -140,12 +154,13 @@ def scan_ransomware_class(root: str = ".") -> List[Finding]:
         rel = str(path.relative_to(rootp)) if path.is_relative_to(rootp) else str(path)
 
         for rule_id, sev, needles, desc, action, do_not, tags in RULES:
+            # AND match: all needles must appear (reduces single-word noise)
             if all(n in text for n in needles):
                 key = (rule_id, rel)
                 if key in seen:
                     continue
                 seen.add(key)
-                # evidence snippet
+                # evidence snippet around first needle — for operators, not for us
                 idx = text.find(needles[0])
                 snippet = text[max(0, idx - 40) : idx + 80].replace("\n", " ")
                 findings.append(
@@ -168,4 +183,5 @@ def scan_ransomware_class(root: str = ".") -> List[Finding]:
 
 
 def get_ransomware_class_findings(root: str = ".") -> List[Finding]:
+    # Stable public name for scanner package exports
     return scan_ransomware_class(root)

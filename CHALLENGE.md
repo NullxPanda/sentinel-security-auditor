@@ -17,12 +17,13 @@
 - [x] README: product sentence, install, limitations, what we don't detect
 - [x] Git: small commits, no force-push (`335b650` on feature/phase2-supplychain — no force)
 
-## Phase 1 stretch (remaining weekend)
+## Phase 1 stretch (weekend → Session 2)
 
-- [ ] Demo receipt script / one-liner in README proven on cold shell
-- [ ] Tighten GHA + shiny normalizers fully onto Finding fields everywhere
-- [ ] Historical section: less wall-of-text, more action boxes
-- [ ] Optional: go-guard wired in default CI-less test skip if binary missing
+- [x] Demo receipt script / one-liner in README proven on cold shell (`scripts/demo_cold.sh`, `python3 sentinel.py --demo`)
+- [x] Tighten GHA + shiny normalizers fully onto Finding fields everywhere (`correlator/normalize.py`)
+- [x] Historical section: less wall-of-text, more action boxes (reporter + `_HISTORICAL_ACTIONS`)
+- [x] Optional: go-guard wired in default CI-less test skip if binary missing
+- [x] Duo comments pass (`#` why-notes on orchestrator / scanners / normalize) + COLLAB.md
 
 ## Rules of engagement
 
@@ -42,6 +43,29 @@ Shipped:
 - offline CLI (`--offline --modules --root`)  
 - 7 unittest cases green  
 - Canonical vs TrippyD3v pointer clarified  
+
+## Session 2 receipt (2026-07-10)
+
+Shipped (Phase 1 chassis + duo working style):
+
+- `correlator/normalize.py` — one dialect for historical / GHA / shiny / live / go-guard  
+- `sentinel.py` orchestrator: `--demo`, offline module set, normalize-before-filter  
+- Operator blocks: Action / Do NOT stable in `reporting/reporter.py`  
+- `scripts/demo_cold.sh` + README cold path + COLLAB.md  
+- `#` comments on detection/orchestration files (for us; not in operator text)  
+- Tests: 11 green (`test_normalize` + class fixtures + offline CLI)  
+
+Next session → Challenge **A ∪ B ∪ C** focus (see end of this file).
+
+## Challenge A ∪ B ∪ C (next plan)
+
+| Letter | Meaning (BACKBONE) | Next concrete work |
+|--------|--------------------|--------------------|
+| **A** | Session work — audit, cold-run, first green path | Re-run cold demo after clean checkout; fix any red; session receipt only when green |
+| **B** | Written protocol in-repo | Keep CHALLENGE / BACKBONE / COLLAB honest; no tribal knowledge outside the tree |
+| **C** | Flagship is Sentinel | No side toys; every hour goes into this root until Phase 1 feels boring-solid |
+
+Optional Phase 1+ after A∪B∪C is green: fewer FPs on shiny, more fixtures, lab notes — not Phase 2 theater.
 
 ## Respect metric
 

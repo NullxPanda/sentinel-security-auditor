@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""Sentinel — local-first blue-team signal reducer.
+"""
+Sentinel — local-first blue-team signal reducer.
 
-sense → match known-ugly classes → prioritize → recommend contain/patch
+  sense → match known-ugly classes → prioritize → recommend contain/patch
 
-See BACKBONE.md for doctrine.
+This file is the ORCHESTRATOR only.
+  - Detection logic lives in scanner/*
+  - Shape translation lives in correlator/normalize.py
+  - Operator output lives in reporting/reporter.py
+  - Doctrine lives in BACKBONE.md
+
+We build this together — if you change module order or flags, leave a # comment
+so the other half of the duo knows why.
 """
 
 from __future__ import annotations
@@ -14,27 +22,49 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from models.data_models import Finding
+# ---------------------------------------------------------------------------
+# Shared normalizers (single dialect for every module).
+# Do NOT invent a third shape in this file — convert in correlator/normalize.py.
+# ---------------------------------------------------------------------------
+from correlator.normalize import (
+    finding_to_filter_dict,
+    normalize_gha,
+    normalize_go_guard,
+    normalize_historical,
+    normalize_live_cve,
+    normalize_shiny,
+)
 from reporting.reporter import print_blue_team_findings, print_summary
-from utils.filters import add_category_and_tags, apply_filters, compile_filter
+from utils.filters import apply_filters
 
 
 def _run_go_guard(root: str = ".") -> List[Dict[str, Any]]:
-    """Invoke the Go hardening layer (sentinel-guard) if built. Returns finding dicts."""
+    """
+    Optional Go hardening layer (path-safe GHA + secrets).
+
+    Binary is gitignored under bin/ — build when you want this path:
+      go build -o bin/sentinel-guard ./cmd/sentinel-guard
+
+    Missing binary is NOT a failure; we stay Python-first on the Surface.
+    """
     here = Path(__file__).resolve().parent
+    # Prefer bin/ (gitignored) then a repo-root binary leftover from experiments
     candidates = [
         here / "bin" / "sentinel-guard",
         here / "sentinel-guard",
     ]
     binary = next((p for p in candidates if p.is_file() and os.access(p, os.X_OK)), None)
     if binary is None:
-        print("\n[Go guard] Binary not found. Build with:")
-        print("  cd /home/ghostnode/projects/sentinel && go build -o bin/sentinel-guard ./cmd/sentinel-guard")
+        # Team-readable skip: offline demos should not look "broken"
+        print("\n[Go guard] skipped — binary not built yet (optional Phase 0 path).")
+        print("  build: go build -o bin/sentinel-guard ./cmd/sentinel-guard")
+        print("  then:  python3 sentinel.py --modules go-guard --root .")
         return []
 
-    print("\nRunning Go hardening layer (sentinel-guard: path-safe GHA + secrets scan)...")
+    print("\nRunning Go hardening layer (sentinel-guard)...")
+    # -json keeps stdout machine-parseable; stderr is human noise on failure
     proc = subprocess.run(
         [str(binary), "-root", root, "-mode", "all", "-json"],
         capture_output=True,
@@ -46,42 +76,25 @@ def _run_go_guard(root: str = ".") -> List[Dict[str, Any]]:
         return []
 
     try:
-        findings = json.loads(proc.stdout or "[]")
+        raw = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError:
         print("[Go guard] invalid JSON output")
         return []
 
-    out = []
-    for f in findings:
-        d = add_category_and_tags(
-            {
-                "id": f.get("id", "GO-GUARD"),
-                "severity": f.get("severity", "UNKNOWN"),
-                "description": f.get("description", ""),
-                "file": f.get("file", ""),
-                "asset": f.get("file", ""),
-                "signal": f.get("signal", ""),
-                "evidence": f.get("signal", "") or f.get("file", ""),
-                "action": f.get("recommendation", ""),
-                "recommendation": f.get("recommendation", ""),
-                "do_not": "Do not force-push secrets; rotate if exposed.",
-                "tags": f.get("tags") or ["go-guard"],
-            },
-            f.get("category") or "go-guard",
-            f.get("tags") or ["go-guard"],
-        )
-        out.append(d)
-    return out
+    # Same Action/Do NOT boxes as Python modules (normalize, don't reprint raw)
+    return [normalize_go_guard(f) for f in raw]
 
 
 def parse_args(argv=None):
+    # CLI surface is part of the product — keep --demo stranger-proof.
     p = argparse.ArgumentParser(
         description=(
             "Sentinel — local-first blue-team signal reducer "
             "(sense → match known-ugly classes → prioritize → recommend contain/patch)"
         ),
         epilog=(
-            "Examples: python3 sentinel.py --offline --modules ransomware-class,dns-class "
+            "Together-mode demo: "
+            "python3 sentinel.py --offline --modules ransomware-class,dns-class,gha "
             "--root test-fixtures"
         ),
     )
@@ -89,7 +102,8 @@ def parse_args(argv=None):
     p.add_argument(
         "--offline",
         action="store_true",
-        help="Skip live NVD/CVE network calls (recommended on constrained links / Phase 0 demos)",
+        # Phase 0/1 default for demos: no NVD, no "is the network up?" drama
+        help="Skip live NVD/CVE network calls (Phase 0/1 default for demos)",
     )
     p.add_argument(
         "--modules",
@@ -97,33 +111,45 @@ def parse_args(argv=None):
         metavar="LIST",
         help=(
             "Comma list: packages,historical,gha,shiny,ransomware-class,dns-class,go-guard "
-            "or 'all' (default). Offline default still runs local modules."
+            "or 'all'"
         ),
     )
-    p.add_argument("--no-packages", action="store_true", help="Skip installed package inventory")
-    p.add_argument("--no-historical", action="store_true", help="Skip local historical knowledge base")
-    p.add_argument("--go-guard", action="store_true", help="Also run Go hardening layer if built")
+    # Legacy flags kept so old muscle memory / scripts still work
+    p.add_argument("--no-packages", action="store_true", help="Skip package inventory")
+    p.add_argument("--no-historical", action="store_true", help="Skip historical knowledge base")
     p.add_argument(
-        "--filter",
-        "-f",
-        default="",
-        metavar="EXPR",
-        help="Wireshark-like display filter",
+        "--go-guard",
+        action="store_true",
+        help="Include go-guard module (same as --modules ... go-guard)",
     )
-    p.add_argument("--severity", help="Shortcut severities (comma), e.g. CRITICAL,HIGH")
-    p.add_argument("--category", help="Shortcut categories (comma)")
-    p.add_argument("--shiny-only", action="store_true", help="Only ShinyHunters-related findings")
-    p.add_argument("--high-only", action="store_true", help="Only CRITICAL and HIGH")
-    p.add_argument("--list-filters", action="store_true", help="Show filter examples and exit")
-    p.add_argument("--json", action="store_true", help="Emit findings as JSON array on stdout (still prints progress on stderr-ish; simple mode prints JSON last)")
+    p.add_argument("--filter", "-f", default="", metavar="EXPR", help="Wireshark-like filter")
+    p.add_argument("--severity", help="Shortcut severities, e.g. CRITICAL,HIGH")
+    p.add_argument("--category", help="Shortcut categories")
+    p.add_argument("--shiny-only", action="store_true")
+    p.add_argument("--high-only", action="store_true")
+    p.add_argument("--list-filters", action="store_true")
+    p.add_argument(
+        "--json",
+        action="store_true",
+        # Human report always prints; --json is extra for piping / receipts
+        help="Also dump full findings JSON after human report (for piping)",
+    )
+    p.add_argument(
+        "--demo",
+        action="store_true",
+        # One command a teammate can run without reading our brains
+        help="Stranger-proof offline demo (fixtures + class modules). Ignores network.",
+    )
     return p.parse_args(argv)
 
 
 def build_filter_string(args) -> str:
+    # Compose one filter expr from flags; utils.filters owns the grammar.
     parts = []
     if args.filter:
         parts.append(args.filter)
     if args.severity:
+        # Comma → OR via regex-ish ~= (see utils.filters)
         parts.append("severity~=" + args.severity.replace(",", "|"))
     if args.category:
         parts.append("category~=" + args.category.replace(",", "|"))
@@ -135,8 +161,15 @@ def build_filter_string(args) -> str:
 
 
 def _wanted_modules(args) -> set:
+    """
+    Resolve which modules run.
+
+    Offline + all → drop live packages (needs NVD). Explicit packages in --modules
+    still allowed if someone is testing inventory only later.
+    """
     raw = (args.modules or "all").strip().lower()
     if raw == "all":
+        # Default Phase 0→1 set: offline-capable modules first
         mods = {
             "packages",
             "historical",
@@ -147,104 +180,42 @@ def _wanted_modules(args) -> set:
         }
     else:
         mods = {m.strip() for m in raw.split(",") if m.strip()}
+
+    # Explicit opt-outs win over "all"
     if args.no_packages:
         mods.discard("packages")
     if args.no_historical:
         mods.discard("historical")
-    if args.offline:
-        mods.discard("packages")  # packages alone without CVE is noisy; skip inventory in offline unless forced
-        # allow packages back if explicitly listed
-        if args.modules and "packages" in args.modules.lower() and args.modules.lower() != "all":
-            mods.add("packages")
+
+    if args.offline or args.demo:
+        # Live CVE path needs network — keep offline honest
+        if raw == "all" or args.demo:
+            mods.discard("packages")
+        elif "packages" not in raw:
+            # Explicit module list that omitted packages: stay offline-clean
+            mods.discard("packages")
+
     if args.go_guard:
+        # Flag is additive (same as listing go-guard in --modules)
         mods.add("go-guard")
     return mods
 
 
-def normalize_live_cve(f) -> Dict[str, Any]:
-    d = {
-        "id": f.cve_id,
-        "severity": f.severity,
-        "package": f.package,
-        "version": f.version,
-        "asset": f"{f.package}@{f.version}",
-        "description": f"Installed package may be affected by {f.cve_id}",
-        "signal": f.cve_id,
-        "evidence": f"{f.package} {f.version}",
-        "action": f"Patch or upgrade {f.package}; verify fixed version; restart service if needed.",
-        "do_not": "Do not ignore CRITICAL/HIGH on internet-exposed services.",
-        "recommendation": f"Patch {f.package}",
-    }
-    return add_category_and_tags(d, "live", ["cve", "package"])
-
-
-def normalize_historical(h: Dict[str, Any]) -> Dict[str, Any]:
-    d = dict(h)
-    d.setdefault("id", h.get("id"))
-    d.setdefault("severity", h.get("severity", "UNKNOWN"))
-    d.setdefault("description", h.get("description", ""))
-    d.setdefault("action", h.get("notes") or "Review attack chain; confirm you are not exposed to this class.")
-    d.setdefault(
-        "do_not",
-        "Do not treat historical knowledge as a live compromise by itself — validate against your assets.",
-    )
-    d.setdefault("evidence", h.get("example_payload") or h.get("description", "")[:120])
-    d.setdefault("signal", d.get("id", ""))
-    tags = ["classic"]
-    if str(h.get("id", "")).startswith("AI-GHA"):
-        tags.append("ai-gha")
-    if str(h.get("id", "")).startswith("SHINY"):
-        tags.extend(["shiny", "saas"])
-    return add_category_and_tags(d, "historical", tags)
-
-
-def normalize_gha(f: Dict[str, Any]) -> Dict[str, Any]:
-    risks = f.get("risks") or []
-    d = {
-        "id": f.get("workflow") or "GHA",
-        "severity": f.get("severity", "HIGH"),
-        "description": " | ".join(risks) if risks else "GitHub Actions AI/supply-chain risk",
-        "asset": f.get("workflow", ""),
-        "file": f.get("workflow", ""),
-        "signal": "github-actions",
-        "evidence": " | ".join(risks),
-        "action": f.get("recommendation")
-        or "Pin actions; restrict triggers; never feed raw issue bodies into agents with write tokens.",
-        "do_not": "Do not grant contents:write to untrusted-trigger AI workflows.",
-        "recommendation": f.get("recommendation", ""),
-    }
-    return add_category_and_tags(d, "gha", ["github-actions", "prompt-injection", "supply-chain"])
-
-
-def normalize_shiny(f: Dict[str, Any]) -> Dict[str, Any]:
-    d = {
-        "id": f.get("vector") or "SHINY",
-        "severity": f.get("severity", "HIGH"),
-        "file": f.get("file", ""),
-        "asset": f.get("file", ""),
-        "signal": f.get("signal", ""),
-        "evidence": f.get("snippet") or f.get("signal", ""),
-        "description": f.get("recommendation") or f.get("signal") or "ShinyHunters-class exposure surface",
-        "action": f.get("recommendation") or "Harden guest/unauth surfaces; force MFA; review SaaS sharing.",
-        "do_not": "Do not leave guest/profile public read on high-value SaaS objects.",
-        "recommendation": f.get("recommendation", ""),
-    }
-    tags = ["shiny", "saas"]
-    if "AURA" in str(d["id"]):
-        tags.append("guest-access")
-    if "PEOPLESOFT" in str(d["id"]):
-        tags.append("erp")
-    if "MFA" in str(d["id"]) or "VISH" in str(d["id"]):
-        tags.append("social-engineering")
-    return add_category_and_tags(d, "shiny", tags)
-
-
-def finding_to_filter_dict(f: Finding) -> Dict[str, Any]:
-    return add_category_and_tags(f.to_dict(), f.category, f.tags)
-
-
 def main(argv=None):
     args = parse_args(argv)
+
+    # --demo = one command a teammate can run without reading our brains
+    if args.demo:
+        args.offline = True
+        here = Path(__file__).resolve().parent
+        # Class rules need fixtures; historical is always local (no net)
+        args.root = str(here / "test-fixtures")
+        # Include risky workflow fixture parent for GHA? fixtures dir has ransomware+dns;
+        # also scan repo root workflows by adding gha with root=.
+        # Split: class modules on fixtures, gha on repo root — for simplicity demo
+        # scans fixtures for class rules AND repo for gha if present.
+        # Demo set is intentionally small + deterministic (no shiny noise on fixtures).
+        args.modules = "ransomware-class,dns-class,historical"
 
     if args.list_filters:
         print(
@@ -253,11 +224,12 @@ def main(argv=None):
   --filter 'severity=CRITICAL'
   --filter 'category=ransomware-class'
   --filter 'category~dns-class|gha severity>=HIGH'
-  --filter 'id~RW-CLASS|DNS-CLASS'
-  --shiny-only   --high-only
+  --filter 'id~RW-CLASS|DNS-CLASS|GHA-RISK|SHINY'
 
-Offline demo:
-  python3 sentinel.py --offline --modules ransomware-class,dns-class --root test-fixtures
+Offline / together demos:
+  python3 sentinel.py --demo
+  python3 scripts/demo_cold.sh
+  python3 sentinel.py --offline --modules ransomware-class,dns-class,gha --root test-fixtures
 """
         )
         return 0
@@ -265,17 +237,25 @@ Offline demo:
     root = args.root
     mods = _wanted_modules(args)
     filt_str = build_filter_string(args)
+    # Accumulators are dicts (filter layer + reporter both accept dicts)
     all_findings: List[Dict[str, Any]] = []
 
+    # Boot banner: boring, greppable, good for session receipts
     print("sentinel :: boot")
-    print("product: local-first blue-team signal reducer")
-    print(f"root: {root}")
-    print(f"modules: {', '.join(sorted(mods)) or '(none)'}")
-    print(f"mode: {'offline' if args.offline else 'online-capable'}")
+    print("product : local-first blue-team signal reducer")
+    print("doctrine: BACKBONE.md (we build this together)")
+    print(f"root    : {root}")
+    print(f"modules : {', '.join(sorted(mods)) or '(none)'}")
+    print(f"mode    : {'offline' if (args.offline or args.demo) else 'online-capable'}")
     print("-" * 40)
 
-    # --- packages + live CVE ---
-    if "packages" in mods and not args.offline:
+    # -----------------------------------------------------------------------
+    # Module order matters for human reading (online first if present, then
+    # offline gold, then class detectors). Change order only with a reason.
+    # -----------------------------------------------------------------------
+
+    # --- packages + live CVE (online only) ---
+    if "packages" in mods and not args.offline and not args.demo:
         from scanner.package_scanner import get_installed_packages
         from vulnerability.cve_client import fetch_recent_cves
         from correlator.matcher import match_packages_to_cves
@@ -287,25 +267,26 @@ Offline demo:
         cves = fetch_recent_cves(50)
         print("CVE records retrieved:", len(cves))
         raw_live = match_packages_to_cves(packages, cves)
+        # Always normalize before filter/report so Action/Do NOT exist
         live = apply_filters([normalize_live_cve(f) for f in raw_live], filt_str)
         if live:
             print_blue_team_findings(live, "Live package / CVE findings")
             all_findings.extend(live)
         else:
             print("No live CVE matches after filter (or none actionable).")
-    elif "packages" in mods and args.offline:
-        print("Skipping live package/CVE correlation (--offline).")
+    elif "packages" in mods:
+        print("Skipping live package/CVE correlation (offline/demo mode).")
 
-    # --- historical ---
+    # --- historical knowledge (offline gold) ---
     if "historical" in mods:
         from vulnerability.historical import get_historical_cves
 
         print("\nLoading local historical attack knowledge base...")
         historical_raw = get_historical_cves(50)
         hist = apply_filters([normalize_historical(h) for h in historical_raw], filt_str)
-        # Keep output bounded
         if hist:
-            # prefer mix: non-shiny first few + shiny
+            # Bound noise: classics first, then campaign vectors
+            # (full list is still available via --json or higher limits later)
             non_shiny = [h for h in hist if not str(h.get("id", "")).startswith("SHINY-")][:6]
             shiny_ones = [h for h in hist if str(h.get("id", "")).startswith("SHINY-")][:8]
             bounded = non_shiny + shiny_ones
@@ -314,26 +295,42 @@ Offline demo:
         else:
             print("(historical section empty or filtered)")
 
-    # --- GHA ---
+    # --- GitHub Actions ---
     if "gha" in mods:
         from scanner.github_actions_scanner import get_github_action_findings
 
-        print("\nScanning GitHub Actions workflows for AI agent / prompt-injection risks...")
-        gha_raw = get_github_action_findings(root)
-        gha = apply_filters([normalize_gha(f) for f in gha_raw], filt_str)
+        print("\nScanning GitHub Actions for AI agent / prompt-injection risks...")
+        # For --demo we still want the risky workflow under repo .github if root is fixtures.
+        # So: if demo, also scan package root once.
+        gha_roots = [root]
+        if args.demo:
+            # Fixtures root alone misses .github/workflows in the real repo
+            gha_roots.append(str(Path(__file__).resolve().parent))
+        gha_acc: List[Dict[str, Any]] = []
+        seen_wf = set()
+        for gr in gha_roots:
+            for raw in get_github_action_findings(gr):
+                key = raw.get("workflow") or raw.get("file")
+                if key in seen_wf:
+                    continue  # de-dupe when demo scans fixtures + repo
+                seen_wf.add(key)
+                gha_acc.append(normalize_gha(raw))
+        gha = apply_filters(gha_acc, filt_str)
         if gha:
             print_blue_team_findings(gha, "GitHub Actions / AI risk findings")
             all_findings.extend(gha)
         else:
             print("No GHA / AI agent findings after filter (or none).")
 
-    # --- Shiny ---
+    # --- ShinyHunters-class surface ---
     if "shiny" in mods:
         from scanner.shiny_hunters_scanner import get_shiny_hunters_findings
 
         print("\nScanning for ShinyHunters-class exposure surfaces...")
-        shiny_raw = get_shiny_hunters_findings(root)
-        shiny = apply_filters([normalize_shiny(f) for f in shiny_raw], filt_str)
+        shiny = apply_filters(
+            [normalize_shiny(f) for f in get_shiny_hunters_findings(root)],
+            filt_str,
+        )
         if shiny:
             print_blue_team_findings(shiny, "ShinyHunters strategy vector findings")
             all_findings.extend(shiny)
@@ -344,9 +341,12 @@ Offline demo:
     if "ransomware-class" in mods:
         from scanner.ransomware_class_scanner import scan_ransomware_class
 
-        print("\nScanning for ransomware-CLASS behavior patterns (safe text rules)...")
-        rw = [finding_to_filter_dict(f) for f in scan_ransomware_class(root)]
-        rw = apply_filters(rw, filt_str)
+        print("\nScanning for ransomware-CLASS patterns (safe text rules)...")
+        # Class scanners already return Finding; finding_to_filter_dict for filters
+        rw = apply_filters(
+            [finding_to_filter_dict(f) for f in scan_ransomware_class(root)],
+            filt_str,
+        )
         if rw:
             print_blue_team_findings(rw, "Ransomware-class findings")
             all_findings.extend(rw)
@@ -358,23 +358,27 @@ Offline demo:
         from scanner.dns_class_scanner import scan_dns_class
 
         print("\nScanning for DNS-CLASS abuse / misconfig patterns...")
-        dns = [finding_to_filter_dict(f) for f in scan_dns_class(root, include_system=False)]
-        dns = apply_filters(dns, filt_str)
+        # include_system=False: demos stay deterministic on any machine
+        dns = apply_filters(
+            [finding_to_filter_dict(f) for f in scan_dns_class(root, include_system=False)],
+            filt_str,
+        )
         if dns:
             print_blue_team_findings(dns, "DNS-class findings")
             all_findings.extend(dns)
         else:
             print("No DNS-class patterns in scan root.")
 
-    # --- go guard ---
+    # --- go guard (optional) ---
     if "go-guard" in mods:
         gof = apply_filters(_run_go_guard(root), filt_str)
         if gof:
             print_blue_team_findings(gof, "Go guard findings")
             all_findings.extend(gof)
 
+    # Summary always last (screenshot-friendly for CHALLENGE receipts)
     print_summary(all_findings)
-    print("\nsentinel :: done")
+    print("\nsentinel :: done  (see BACKBONE.md if you're new here)")
 
     if args.json:
         print(json.dumps(all_findings, indent=2))
