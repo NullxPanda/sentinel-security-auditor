@@ -19,6 +19,8 @@ Sentinel reduces that into what requires action.
 * local system analysis
 * defensive focus
 * no exploitation
+* on Windows, read the installed cumulative and Defender status, then list NVD records published after that cumulative
+* a CVE ID from NVD is a real record, not proof this PC is affected
 
 ---
 

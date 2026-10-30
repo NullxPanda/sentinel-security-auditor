@@ -9,5 +9,6 @@ def print_findings(findings):
     for finding in findings:
 
         print(
-            f"[{finding.severity}] {finding.package} {finding.version} → {finding.cve_id}"
+            f"[{finding.severity}] {finding.package} {finding.version} → "
+            f"{finding.cve_id} ({finding.confidence}, {finding.status})"
         )

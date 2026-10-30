@@ -12,7 +12,6 @@ def get_installed_packages():
         return scan_dpkg()
 
     elif system == "Windows":
-        print("Windows scanning not implemented yet.")
         return []
 
     else:
