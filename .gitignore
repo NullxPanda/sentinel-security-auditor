@@ -4,3 +4,7 @@ __pycache__/
 bin/
 .sentinel_cache/
 *.db
+.venv/
+venv/
+.env
+*.log

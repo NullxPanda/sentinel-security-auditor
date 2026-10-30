@@ -111,8 +111,8 @@ def parse_args(argv=None):
         default="all",
         metavar="LIST",
         help=(
-            "Comma list: packages,historical,gha,shiny,ransomware-class,dns-class,go-guard "
-            "or 'all'"
+            "Comma list: packages,historical,gha,shiny,ransomware-class,dns-class,"
+            "windows,go-guard or 'all'"
         ),
     )
     # Legacy flags kept so old muscle memory / scripts still work
@@ -185,6 +185,7 @@ def _wanted_modules(args) -> set:
             "shiny",
             "ransomware-class",
             "dns-class",
+            "windows",
         }
     else:
         mods = {m.strip() for m in raw.split(",") if m.strip()}
@@ -195,8 +196,13 @@ def _wanted_modules(args) -> set:
     if args.no_historical:
         mods.discard("historical")
 
+    if args.demo:
+        # Demo stays on fixtures. Do not read this PC's patch level.
+        mods.discard("windows")
+
     if args.offline or args.demo:
-        # Live CVE path needs network — keep offline honest
+        # Live CVE path needs network — keep offline honest.
+        # The Windows module uses the local library and still runs offline.
         if raw == "all" or args.demo:
             mods.discard("packages")
         elif "packages" not in raw:
@@ -377,6 +383,43 @@ Offline / together demos:
             all_findings.extend(dns)
         else:
             print("No DNS-class patterns in scan root.")
+
+    # --- this PC: cumulative, Defender, local CVE library (no network) ---
+    if "windows" in mods and not args.demo:
+        from scanner.windows_posture import collect_windows_posture, print_posture
+        from vulnerability.library import load_library, summarize
+        from correlator.windows_library import match_library_to_posture
+
+        posture = collect_windows_posture()
+        if posture is None:
+            print("\nWindows posture skipped (this is not Windows).")
+        else:
+            print()
+            print_posture(posture)
+            library = load_library()
+            if library is None:
+                print("\nCVE library is missing. Run: python -m vulnerability.update_library")
+            else:
+                info = summarize(library)
+                print("\nCVE library")
+                print("-----------")
+                print(f"Updated: {info['updated']}")
+                print(f"Records kept: {info['count']}")
+                print(f"Rejected or empty dropped: {info['dropped']}")
+                print(f"Known-exploited flags: {info['kev']}")
+                rows = match_library_to_posture(library.get("records") or [], posture)
+                windows_findings = _pipe([finding_to_filter_dict(f) for f in rows])
+                if windows_findings:
+                    print_blue_team_findings(
+                        windows_findings, "Windows posture / local CVE library"
+                    )
+                    all_findings.extend(windows_findings)
+                else:
+                    print(
+                        "No Windows records for this build were published after "
+                        "the installed cumulative."
+                    )
+                print("A CVE ID is a real record. It is not proof this PC is affected.")
 
     # --- go guard (optional) ---
     if "go-guard" in mods:

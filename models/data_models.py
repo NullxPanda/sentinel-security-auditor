@@ -38,6 +38,8 @@ class VulnerabilityFinding:
     version: str
     cve_id: str
     severity: str
+    status: str = "unknown"
+    confidence: str = "unconfirmed"
 
 
 @dataclass

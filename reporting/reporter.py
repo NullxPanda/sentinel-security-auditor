@@ -29,7 +29,10 @@ def print_findings(findings):
 
     print("\nVulnerability Findings (actionable only):\n")
     for finding in findings:
-        print(f"[{finding.severity}] {finding.package} {finding.version} → {finding.cve_id}")
+        confidence = getattr(finding, "confidence", "")
+        status = getattr(finding, "status", "")
+        extra = f" ({confidence}, {status})" if confidence or status else ""
+        print(f"[{finding.severity}] {finding.package} {finding.version} → {finding.cve_id}{extra}")
 
 
 def print_blue_team_findings(

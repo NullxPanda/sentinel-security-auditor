@@ -5,7 +5,7 @@ def extract_severity(cve: dict) -> str:
     This cuts a lot of the 1999-era noise that lacks modern CVSS vectors.
     """
     metrics = cve.get("metrics", {})
-    for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+    for key in ("cvssMetricV40", "cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
         if key in metrics:
             try:
                 entry = metrics[key][0]

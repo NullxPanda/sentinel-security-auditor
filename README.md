@@ -14,6 +14,8 @@ Not an EDR. Not Mythos-clone theater. Handmade defensive signal tooling for oper
 - local / offline-first analysis  
 - defensive focus only  
 - **no exploitation**, no live malware samples  
+- on Windows, read the installed cumulative and Defender status, then match the local CVE library to this build  
+- a CVE ID is a real record, not proof this PC is affected  
 
 ## Quick start (cold) — stranger / teammate proof
 
@@ -74,6 +76,7 @@ python3 sentinel.py --offline --modules gha --go-guard --root .
 | `ransomware-class` | Safe text rules for shadow-copy wipe, ransom notes, SMB worm narrative |
 | `dns-class` | Long-label / NXDOMAIN flood / hijack indicators in logs & configs |
 | `go-guard` | Optional path-safe GHA + secrets (Go binary) |
+| `windows` | This PC's cumulative and Defender status, then local-library CVEs published after that cumulative |
 
 ## Finding shape (stable)
 

@@ -12,7 +12,6 @@ def get_installed_packages() -> List[Package]:
     if system == "Linux":
         return scan_dpkg()
     elif system == "Windows":
-        print("Windows scanning not implemented yet.")
         return []
     else:
         print(f"Unsupported OS: {system}")
